@@ -1,0 +1,49 @@
+name: Build sing-box package
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout this repo (with our Makefile changes)
+        uses: actions/checkout@v4
+        with:
+          path: my-packages
+
+      - name: Install zstd
+        run: sudo apt-get update && sudo apt-get install -y zstd
+
+      - name: Download ImmortalWrt SDK
+        run: |
+          wget https://downloads.immortalwrt.org/releases/25.12.0/targets/bcm27xx/bcm2712/immortalwrt-sdk-25.12.0-bcm27xx-bcm2712_gcc-14.3.0_musl.Linux-x86_64.tar.zst
+          tar --use-compress-program=unzstd -xf immortalwrt-sdk-25.12.0-bcm27xx-bcm2712_gcc-14.3.0_musl.Linux-x86_64.tar.zst
+          mv immortalwrt-sdk-25.12.0-bcm27xx-bcm2712_gcc-14.3.0_musl.Linux-x86_64 sdk
+
+      - name: Point packages feed at our fork
+        run: |
+          cd sdk
+          sed -i 's#^src-git packages.*#src-git packages https://github.com/martinlockheed90-bot/packages.git#' feeds.conf.default
+
+      - name: Update and install feeds
+        run: |
+          cd sdk
+          ./scripts/feeds update -a
+          ./scripts/feeds install sing-box
+
+      - name: Configure build
+        run: |
+          cd sdk
+          make defconfig
+
+      - name: Build sing-box package
+        run: |
+          cd sdk
+          make package/sing-box/compile V=s -j$(nproc)
+
+      - name: Find and upload built package
+        uses: actions/upload-artifact@v4
+        with:
+          name: sing-box-package
+          path: sdk/bin/packages/**/sing-box*.apk
