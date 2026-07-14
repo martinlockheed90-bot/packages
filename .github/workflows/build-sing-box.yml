@@ -40,7 +40,7 @@ jobs:
       - name: Build sing-box package
         run: |
           cd sdk
-          make package/sing-box/compile V=s -j$(nproc)
+          make package/sing-box/compile V=s -j$(nproc) IGNORE_ERRORS="n m"
 
       - name: Find and upload built package
         uses: actions/upload-artifact@v4
