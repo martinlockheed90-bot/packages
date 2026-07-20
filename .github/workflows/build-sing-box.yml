@@ -29,14 +29,15 @@ jobs:
         run: |
           cd sdk
           make defconfig
-      - name: Dump sing client.go for patch verification
-        run: |
-          cd sdk
-          find build_dir -path "*sagernet/sing@*/protocol/socks/client.go" -exec echo "=== {} ===" \; -exec cat {} \;
       - name: Build sing-box package
         run: |
           cd sdk
           make package/sing-box/compile V=s -j$(nproc) IGNORE_ERRORS="n m"
+      - name: Dump sing client.go for patch verification
+        run: |
+          cd sdk
+          find . -path "*sagernet/sing@*/protocol/socks/client.go" -exec echo "=== {} ===" \; -exec cat {} \; 2>/dev/null || echo "NOT FOUND in sdk dir, trying wider search"
+          find / -path "*sagernet/sing@*/protocol/socks/client.go" -exec echo "=== {} ===" \; -exec cat {} \; 2>/dev/null
       - name: List built packages
         run: find sdk/bin/packages -iname "*sing-box*"
       - name: Find and upload built package
