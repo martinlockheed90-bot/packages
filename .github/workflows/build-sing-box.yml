@@ -29,16 +29,54 @@ jobs:
         run: |
           cd sdk
           make defconfig
-      - name: Build sing-box package
+      - name: First build pass (to populate go module cache)
         run: |
           cd sdk
           make package/sing-box/compile V=s -j$(nproc) IGNORE_ERRORS="n m"
-      - name: Dump sing client.go for patch verification
+      - name: Patch sing library UDP ASSOCIATE IPv4 bug
         run: |
           cd sdk
-          find . -path "*sagernet/sing@*/protocol/socks/client.go" -exec echo "=== {} ===" \; -exec cat {} \; 2>/dev/null
-          find / -path "*sagernet/sing@*/protocol/socks/client.go" -exec echo "=== {} ===" \; -exec cat {} \; 2>/dev/null
-          exit 0
+          SING_SRC=$(find dl/go-mod-cache/github.com/sagernet -maxdepth 1 -iname "sing@*" -type d | head -1)
+          echo "Found sing module at: $SING_SRC"
+          if [ -z "$SING_SRC" ]; then
+            echo "ERROR: sing module not found in go-mod-cache"
+            exit 1
+          fi
+          rm -rf /tmp/sing-patched
+          cp -r "$SING_SRC" /tmp/sing-patched
+          chmod -R u+w /tmp/sing-patched
+          python3 << 'PYEOF'
+          path = "/tmp/sing-patched/protocol/socks/client.go"
+          with open(path) as f:
+              content = f.read()
+          old_import = '\t"net/url"\n'
+          new_import = '\t"net/netip"\n\t"net/url"\n'
+          assert old_import in content, "import anchor not found"
+          content = content.replace(old_import, new_import, 1)
+          old_line = '\t\tcommand = socks5.CommandUDPAssociate\n'
+          new_line = '\t\tcommand = socks5.CommandUDPAssociate\n\t\tif !address.IsValid() {\n\t\t\taddress = M.SocksaddrFrom(netip.IPv4Unspecified(), 0)\n\t\t}\n'
+          assert old_line in content, "command anchor not found"
+          content = content.replace(old_line, new_line, 1)
+          with open(path, 'w') as f:
+              f.write(content)
+          print("=== PATCH APPLIED SUCCESSFULLY ===")
+          PYEOF
+          echo "=== Verifying patched file ==="
+          grep -n "IsValid\|IPv4Unspecified\|net/netip" /tmp/sing-patched/protocol/socks/client.go
+          PKG_BUILD_DIR=$(find build_dir -maxdepth 3 -type d -iname "sing-box-*" | head -1)
+          echo "PKG_BUILD_DIR: $PKG_BUILD_DIR"
+          if [ -z "$PKG_BUILD_DIR" ]; then
+            echo "ERROR: sing-box build dir not found"
+            exit 1
+          fi
+          echo "" >> "$PKG_BUILD_DIR/go.mod"
+          echo "replace github.com/sagernet/sing => /tmp/sing-patched" >> "$PKG_BUILD_DIR/go.mod"
+          echo "=== go.mod tail ==="
+          tail -5 "$PKG_BUILD_DIR/go.mod"
+      - name: Second build pass (with patch applied)
+        run: |
+          cd sdk
+          GOFLAGS="-mod=mod" make package/sing-box/compile V=s -j$(nproc) IGNORE_ERRORS="n m"
       - name: List built packages
         run: find sdk/bin/packages -iname "*sing-box*"
       - name: Find and upload built package
