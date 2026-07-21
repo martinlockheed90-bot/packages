@@ -36,8 +36,9 @@ jobs:
       - name: Dump sing client.go for patch verification
         run: |
           cd sdk
-          find . -path "*sagernet/sing@*/protocol/socks/client.go" -exec echo "=== {} ===" \; -exec cat {} \; 2>/dev/null || echo "NOT FOUND in sdk dir, trying wider search"
+          find . -path "*sagernet/sing@*/protocol/socks/client.go" -exec echo "=== {} ===" \; -exec cat {} \; 2>/dev/null
           find / -path "*sagernet/sing@*/protocol/socks/client.go" -exec echo "=== {} ===" \; -exec cat {} \; 2>/dev/null
+          exit 0
       - name: List built packages
         run: find sdk/bin/packages -iname "*sing-box*"
       - name: Find and upload built package
