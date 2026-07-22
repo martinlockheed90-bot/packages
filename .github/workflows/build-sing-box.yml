@@ -50,11 +50,17 @@ jobs:
           with open(path) as f:
               content = f.read()
           old_import = '\t"net/url"\n'
-          new_import = '\t"net/netip"\n\t"net/url"\n'
+          new_import = '\t"log"\n\t"net/netip"\n\t"net/url"\n'
           assert old_import in content, "import anchor not found"
           content = content.replace(old_import, new_import, 1)
           old_line = '\t\tcommand = socks5.CommandUDPAssociate\n'
-          new_line = '\t\tcommand = socks5.CommandUDPAssociate\n\t\tif !address.IsValid() {\n\t\t\taddress = M.SocksaddrFrom(netip.IPv4Unspecified(), 0)\n\t\t}\n'
+          new_line = (
+              '\t\tcommand = socks5.CommandUDPAssociate\n'
+              '\t\tif !address.IsValid() || (address.IsIPv6() && address.Addr.IsUnspecified()) {\n'
+              '\t\t\tlog.Println("SINGBOX-UDP-PATCH-V2-TRIGGERED orig=" + address.String())\n'
+              '\t\t\taddress = M.SocksaddrFrom(netip.IPv4Unspecified(), address.Port)\n'
+              '\t\t}\n'
+          )
           assert old_line in content, "command anchor not found"
           content = content.replace(old_line, new_line, 1)
           with open(path, 'w') as f:
@@ -62,7 +68,7 @@ jobs:
           print("=== PATCH APPLIED SUCCESSFULLY ===")
           PYEOF
           echo "=== Verifying patched file ==="
-          grep -n "IsValid\|IPv4Unspecified\|net/netip" /tmp/sing-patched/protocol/socks/client.go
+          grep -n "IsValid\|IPv4Unspecified\|net/netip\|SINGBOX-UDP-PATCH-V2\|\"log\"" /tmp/sing-patched/protocol/socks/client.go
           PKG_BUILD_DIR=$(find build_dir -maxdepth 3 -type d -iname "sing-box-*" | head -1)
           echo "PKG_BUILD_DIR: $PKG_BUILD_DIR"
           if [ -z "$PKG_BUILD_DIR" ]; then
