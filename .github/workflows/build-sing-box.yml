@@ -79,15 +79,11 @@ jobs:
           echo "replace github.com/sagernet/sing => /tmp/sing-patched" >> "$PKG_BUILD_DIR/go.mod"
           echo "=== go.mod tail ==="
           tail -5 "$PKG_BUILD_DIR/go.mod"
-      - name: Second build pass (with patch applied)
+      - name: Force clean before second build
         run: |
           cd sdk
-          GOFLAGS="-mod=mod" make package/sing-box/compile V=s -j$(nproc) IGNORE_ERRORS="n m"
-      - name: List built packages
-        run: find sdk/bin/packages -iname "*sing-box*"
-      - name: Find and upload built package
-        uses: actions/upload-artifact@v4
-        with:
-          name: sing-box-package
-          path: |
-            sdk/bin/packages/**/sing-box*
+          make package/sing-box/clean V=s
+          find build_dir -maxdepth 3 -type d -iname "sing-box-*" -exec rm -rf {} + 2>/dev/null || true
+          find bin/packages -iname "*sing-box*" -delete 2>/dev/null || true
+      - name: Second build pass (with patch applied)
+        run: |
