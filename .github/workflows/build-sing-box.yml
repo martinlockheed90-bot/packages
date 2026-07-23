@@ -89,6 +89,25 @@ jobs:
         run: |
           cd sdk
           GOFLAGS="-mod=mod" make package/sing-box/compile V=s -j$(nproc) IGNORE_ERRORS="n m"
+      - name: Debug - inspect compiled binary before packaging
+        run: |
+          cd sdk
+          echo "=== Searching build_dir for sing-box binaries ==="
+          find build_dir -iname "sing-box" -type f 2>/dev/null | while read f; do
+            echo "--- $f ---"
+            md5sum "$f"
+            COUNT=$(strings "$f" | grep -c "SINGBOX-UDP-PATCH-V2" || true)
+            echo "marker occurrences: $COUNT"
+            stat "$f"
+          done
+          echo "=== Searching staging_dir for sing-box binaries ==="
+          find staging_dir -iname "sing-box" -type f 2>/dev/null | while read f; do
+            echo "--- $f ---"
+            md5sum "$f"
+            stat "$f"
+          done
+          echo "=== Searching bin/packages for the apk itself ==="
+          find bin/packages -iname "*sing-box*" 2>/dev/null
       - name: List built packages
         run: find sdk/bin/packages -iname "*sing-box*"
       - name: Find and upload built package
