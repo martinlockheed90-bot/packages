@@ -33,6 +33,16 @@ jobs:
         run: |
           cd sdk
           make package/sing-box/compile V=s -j$(nproc) IGNORE_ERRORS="n m"
+      - name: Clean before patching (fresh source extraction)
+        run: |
+          cd sdk
+          make package/sing-box/clean V=s
+          find build_dir -maxdepth 3 -type d -iname "sing-box-*" -exec rm -rf {} + 2>/dev/null || true
+          find bin/packages -iname "*sing-box*" -delete 2>/dev/null || true
+      - name: Re-extract source (prepare only, no compile)
+        run: |
+          cd sdk
+          make package/sing-box/prepare V=s
       - name: Patch sing library UDP ASSOCIATE IPv4 bug
         run: |
           cd sdk
@@ -79,12 +89,6 @@ jobs:
           echo "replace github.com/sagernet/sing => /tmp/sing-patched" >> "$PKG_BUILD_DIR/go.mod"
           echo "=== go.mod tail ==="
           tail -5 "$PKG_BUILD_DIR/go.mod"
-      - name: Force clean before second build
-        run: |
-          cd sdk
-          make package/sing-box/clean V=s
-          find build_dir -maxdepth 3 -type d -iname "sing-box-*" -exec rm -rf {} + 2>/dev/null || true
-          find bin/packages -iname "*sing-box*" -delete 2>/dev/null || true
       - name: Second build pass (with patch applied)
         run: |
           cd sdk
@@ -98,16 +102,7 @@ jobs:
             md5sum "$f"
             COUNT=$(strings "$f" | grep -c "SINGBOX-UDP-PATCH-V2" || true)
             echo "marker occurrences: $COUNT"
-            stat "$f"
           done
-          echo "=== Searching staging_dir for sing-box binaries ==="
-          find staging_dir -iname "sing-box" -type f 2>/dev/null | while read f; do
-            echo "--- $f ---"
-            md5sum "$f"
-            stat "$f"
-          done
-          echo "=== Searching bin/packages for the apk itself ==="
-          find bin/packages -iname "*sing-box*" 2>/dev/null
       - name: List built packages
         run: find sdk/bin/packages -iname "*sing-box*"
       - name: Find and upload built package
