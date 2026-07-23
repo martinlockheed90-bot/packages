@@ -87,3 +87,13 @@ jobs:
           find bin/packages -iname "*sing-box*" -delete 2>/dev/null || true
       - name: Second build pass (with patch applied)
         run: |
+          cd sdk
+          GOFLAGS="-mod=mod" make package/sing-box/compile V=s -j$(nproc) IGNORE_ERRORS="n m"
+      - name: List built packages
+        run: find sdk/bin/packages -iname "*sing-box*"
+      - name: Find and upload built package
+        uses: actions/upload-artifact@v4
+        with:
+          name: sing-box-package
+          path: |
+            sdk/bin/packages/**/sing-box*
